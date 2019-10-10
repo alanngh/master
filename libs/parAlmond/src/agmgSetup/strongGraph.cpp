@@ -59,7 +59,7 @@ parCSR* strongGraph(parCSR *A){
       dfloat OD = -sign*A->diag->vals[jj]/(sqrt(Aii)*sqrt(Ajj));
       if(OD > maxOD[i]) maxOD[i] = OD;
     }
-    //non-local entries
+    /*    //non-local entries
     Jstart = A->offd->rowStarts[i],
     Jend   = A->offd->rowStarts[i+1];
     for(dlong jj= Jstart; jj<Jend; jj++){
@@ -67,18 +67,25 @@ parCSR* strongGraph(parCSR *A){
       dfloat Ajj = fabs(diagA[col]);
       dfloat OD = -sign*A->offd->vals[jj]/(sqrt(Aii)*sqrt(Ajj));
       if(OD > maxOD[i]) maxOD[i] = OD;
-    }
+      }*/
+  }
 
+  for (dlong i=0; i<N;i++){
+    const int sign = (diagA[i] >=0) ? 1:-1;
+    const dfloat Aii =fabs(diagA[i]);
+    
     int diag_strong_per_row = 1; // diagonal entry
     //local entries
-    Jstart = A->diag->rowStarts[i],
-    Jend   = A->diag->rowStarts[i+1];
+    dlong Jstart = A->diag->rowStarts[i];
+    dlong Jend   = A->diag->rowStarts[i+1];
     for(dlong jj = Jstart; jj<Jend; jj++){
       dlong col = A->diag->cols[jj];
       if (col==i) continue;
       dfloat Ajj = fabs(diagA[col]);
       dfloat OD = -sign*A->diag->vals[jj]/(sqrt(Aii)*sqrt(Ajj));
-      if(OD > COARSENTHREASHOLD*maxOD[i]) diag_strong_per_row++;
+      if (col<N){
+      if(OD > COARSENTHREASHOLD*(maxOD[i]+maxOD[col])/2) diag_strong_per_row++;
+      }
     }
     int offd_strong_per_row = 0;
     //non-local entries
@@ -87,8 +94,10 @@ parCSR* strongGraph(parCSR *A){
       dlong col = A->offd->cols[jj];
       dfloat Ajj = fabs(diagA[col]);
       dfloat OD = -sign*A->offd->vals[jj]/(sqrt(Aii)*sqrt(Ajj));
-      if(OD > COARSENTHREASHOLD*maxOD[i]) offd_strong_per_row++;
-    }
+      if (col < N){
+      if(OD > COARSENTHREASHOLD*(maxOD[i]+maxOD[col])/2) offd_strong_per_row++;
+      }
+      }
 
     C->diag->rowStarts[i+1] = diag_strong_per_row;
     C->offd->rowStarts[i+1] = offd_strong_per_row;
@@ -121,27 +130,36 @@ parCSR* strongGraph(parCSR *A){
     dlong Jend   = A->diag->rowStarts[i+1];
     for(dlong jj = Jstart; jj<Jend; jj++){
       dlong col = A->diag->cols[jj];
+      // if (col>N)  printf("\n C [%d/%d/%d] out of bounds >_<",col,N,M);
+	
       if (col==i) {
         C->diag->cols[diagCounter++] = col;// diag entry
         continue;
       }
       dfloat Ajj = fabs(diagA[col]);
       dfloat OD = -sign*A->diag->vals[jj]/(sqrt(Aii)*sqrt(Ajj));
-      if(OD > COARSENTHREASHOLD*maxOD[i])
-        C->diag->cols[diagCounter++] = col;
+      if (col < N ){
+      if(OD > COARSENTHREASHOLD*(maxOD[i]+maxOD[col])/2)
+	C->diag->cols[diagCounter++] = col;
+      }
     }
+    
     Jstart = A->offd->rowStarts[i], Jend = A->offd->rowStarts[i+1];
     for(dlong jj = Jstart; jj<Jend; jj++){
       dlong col = A->offd->cols[jj];
+      //if (col>N) printf("\n C [%d/%d/%d] out of bounds >_<",col,N,M);
       dfloat Ajj = fabs(diagA[col]);
       dfloat OD = -sign*A->offd->vals[jj]/(sqrt(Aii)*sqrt(Ajj));
-      if(OD > COARSENTHREASHOLD*maxOD[i])
-        C->offd->cols[offdCounter++] = col;
+      if(col < N){
+      if(OD > COARSENTHREASHOLD*(maxOD[i]+maxOD[col])/2)	 
+	C->offd->cols[offdCounter++] = col;
+	}
     }
   }
   if(N) free(maxOD);
 
   return C;
+  
 }
 
 } //namespace parAlmond
